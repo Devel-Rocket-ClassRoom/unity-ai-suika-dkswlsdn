@@ -265,6 +265,19 @@ public static class SceneSetupEditor
             text: "NEXT", fontSize: 18, color: new Color(1,1,1,0.85f), bold: true,
             align: TextAlignmentOptions.Center);
 
+        // NEXT 패널 내부 과일 이미지 (#4)
+        var nextImgGO = new GameObject("NextFruitImage");
+        nextImgGO.transform.SetParent(nextPanel.transform, false);
+        var nextImgRt = nextImgGO.AddComponent<RectTransform>();
+        nextImgRt.anchorMin        = new Vector2(0.1f, 0.08f);
+        nextImgRt.anchorMax        = new Vector2(0.9f, 0.72f);
+        nextImgRt.offsetMin        = Vector2.zero;
+        nextImgRt.offsetMax        = Vector2.zero;
+        var nextImg = nextImgGO.AddComponent<Image>();
+        nextImg.preserveAspect     = true;
+        nextImg.raycastTarget      = false;
+        if (dc != null) dc.nextFruitUIImage = nextImg;
+
         // ── 게임오버 패널 ───────────────────────────────────────────────────
         var goPanel = MakeImage(canvasGO.transform, "GameOverPanel", COL_CREAM,
             ancMin: new Vector2(0.5f, 0.5f), ancMax: new Vector2(0.5f, 0.5f),
