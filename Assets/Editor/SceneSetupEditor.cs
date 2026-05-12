@@ -6,27 +6,33 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using TMPro;
 
+/// <summary>
+/// Unity 에디터 메뉴 "SuikaGame/① Setup Scene" 을 실행하면
+/// SampleScene에 맵(박스 벽)과 UI를 한 번에 배치합니다.
+/// </summary>
 public static class SceneSetupEditor
 {
     // ── 레이아웃 상수 ─────────────────────────────────────────────────────────
-    // CAM_SIZE=7, 11:16(720×1280 ref) 기준:
-    //   월드 높이=14, HUD 120px = 1.3125 월드 → HUD 하단 Y=5.69
-    //   DROP_Y=5.0 → 화면 183px (HUD 120px 아래 ✓)
-    const float CAM_SIZE   = 7f;
-    const float BOX_HALF_W = 4.2f;   // 11:16 cam half-w≈4.81 → 양쪽 ~0.36 여백
-    const float FLOOR_Y    = -5.5f;
-    const float WALL_THICK = 0.3f;
-    const float GAMEOVER_Y = 4.5f;
-    const float DROP_Y     = 5.0f;
+    const float CAM_SIZE      = 6f;
+    const float BOX_HALF_W    = 2.6f;   // 박스 내부 폭 반값
+    const float FLOOR_Y       = -4.8f;
+    const float WALL_THICK    = 0.25f;
+    const float GAMEOVER_Y    = 4.0f;
+    const float DROP_Y        = 5.0f;
+    const float NEXT_ICON_X   = 3.25f;  // 박스 오른쪽 여백 (카메라 내 최대 ≈ 3.375)
+    const float NEXT_ICON_Y   = 3.5f;
 
-    static readonly Color COL_WALL      = new Color(0.60f, 0.45f, 0.30f);
-    static readonly Color COL_FLOOR     = new Color(0.55f, 0.40f, 0.27f);
+    // 팔레트
+    static readonly Color COL_WALL      = new Color(0.60f, 0.45f, 0.30f, 1f);
+    static readonly Color COL_FLOOR     = new Color(0.55f, 0.40f, 0.27f, 1f);
     static readonly Color COL_LINE      = new Color(0.93f, 0.33f, 0.31f, 0.85f);
-    static readonly Color COL_CREAM     = new Color(1.00f, 0.98f, 0.94f);
-    static readonly Color COL_ORANGE    = new Color(1.00f, 0.80f, 0.44f, 0.95f);
-    static readonly Color COL_BTN       = new Color(0.93f, 0.33f, 0.31f);
-    static readonly Color COL_TXT_DARK  = new Color(0.18f, 0.14f, 0.10f);
-    static readonly Color COL_TXT_BROWN = new Color(0.50f, 0.32f, 0.08f);
+    static readonly Color COL_CREAM     = new Color(1.00f, 0.98f, 0.94f, 1f);
+    static readonly Color COL_ORANGE    = new Color(1.00f, 0.80f, 0.44f, 0.92f);
+    static readonly Color COL_BTN       = new Color(0.93f, 0.33f, 0.31f, 1f);
+    static readonly Color COL_TXT_DARK  = new Color(0.18f, 0.14f, 0.10f, 1f);
+    static readonly Color COL_TXT_BROWN = new Color(0.50f, 0.32f, 0.08f, 1f);
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     [MenuItem("SuikaGame/① Setup Scene")]
     public static void SetupScene()
@@ -38,7 +44,8 @@ public static class SceneSetupEditor
         var dc = CreateDropController();
         CreateUI(dc);
         EnsureEventSystem();
-        Debug.Log("[SuikaGame] 씬 배치 완료!");
+
+        Debug.Log("[SuikaGame] 씬 배치 완료! FruitDatabase 에셋을 GameManager · DropController 에 할당하세요.");
     }
 
     // ── 카메라 ────────────────────────────────────────────────────────────────
@@ -46,320 +53,333 @@ public static class SceneSetupEditor
     static void SetupCamera()
     {
         var camGO = GameObject.FindWithTag("MainCamera");
-        if (camGO == null) { Debug.LogWarning("[SuikaGame] MainCamera 없음"); return; }
+        if (camGO == null) { Debug.LogWarning("MainCamera 를 찾을 수 없습니다."); return; }
 
         var cam = camGO.GetComponent<Camera>();
-        Undo.RecordObject(cam,              "Setup Camera");
-        Undo.RecordObject(camGO.transform,  "Setup Camera Transform");
-
-        cam.orthographic     = true;
+        cam.orthographic = true;
         cam.orthographicSize = CAM_SIZE;
-        cam.clearFlags       = CameraClearFlags.SolidColor;
-        cam.backgroundColor  = COL_CREAM;
-        camGO.transform.position = new Vector3(0f, 0f, -10f);
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cam.backgroundColor = COL_CREAM;
+        camGO.transform.position = new Vector3(0, 0, -10);
+
+        Undo.RecordObject(cam, "Setup Camera");
+        Undo.RecordObject(camGO.transform, "Setup Camera Transform");
     }
 
     // ── 박스 벽면 ─────────────────────────────────────────────────────────────
 
     static void CreateWalls()
     {
-        float h   = (GAMEOVER_Y - FLOOR_Y) + WALL_THICK * 2f;
-        float midY = (GAMEOVER_Y + FLOOR_Y) * 0.5f;
+        float wallHeight = (GAMEOVER_Y - FLOOR_Y) + WALL_THICK * 2f;
+        float wallMidY   = (GAMEOVER_Y + FLOOR_Y) / 2f;
 
-        WallBox("Floor",
-            new Vector3(0f, FLOOR_Y - WALL_THICK * 0.5f, 0f),
-            new Vector3(BOX_HALF_W * 2f + WALL_THICK * 2f, WALL_THICK, 1f),
-            COL_FLOOR);
+        // 바닥
+        MakeWallBox("Floor",
+            pos:   new Vector3(0, FLOOR_Y - WALL_THICK * 0.5f, 0),
+            scale: new Vector3(BOX_HALF_W * 2f + WALL_THICK * 2f, WALL_THICK, 1),
+            color: COL_FLOOR);
 
-        WallBox("Wall_Left",
-            new Vector3(-(BOX_HALF_W + WALL_THICK * 0.5f), midY, 0f),
-            new Vector3(WALL_THICK, h, 1f),
-            COL_WALL);
+        // 왼쪽 벽
+        MakeWallBox("Wall_Left",
+            pos:   new Vector3(-(BOX_HALF_W + WALL_THICK * 0.5f), wallMidY, 0),
+            scale: new Vector3(WALL_THICK, wallHeight, 1),
+            color: COL_WALL);
 
-        WallBox("Wall_Right",
-            new Vector3(BOX_HALF_W + WALL_THICK * 0.5f, midY, 0f),
-            new Vector3(WALL_THICK, h, 1f),
-            COL_WALL);
+        // 오른쪽 벽
+        MakeWallBox("Wall_Right",
+            pos:   new Vector3(BOX_HALF_W + WALL_THICK * 0.5f, wallMidY, 0),
+            scale: new Vector3(WALL_THICK, wallHeight, 1),
+            color: COL_WALL);
     }
 
-    static void WallBox(string name, Vector3 pos, Vector3 scale, Color color)
+    static void MakeWallBox(string name, Vector3 pos, Vector3 scale, Color color)
     {
-        Kill(name);
+        DestroyExisting(name);
+
         var go = new GameObject(name);
-        go.transform.position   = pos;
+        go.transform.position = pos;
         go.transform.localScale = scale;
 
-        // Simple 모드: 스케일이 월드 크기를 결정 (Sliced 불필요)
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = WhiteSprite();
         sr.color  = color;
+        
+        
 
-        go.AddComponent<BoxCollider2D>(); // size 기본값 (1,1) → scale 이 실제 크기
+        var col = go.AddComponent<BoxCollider2D>();
+        col.size = Vector2.one;   // scale 이 실제 크기를 결정
 
-        Undo.RegisterCreatedObjectUndo(go, "Wall " + name);
+        Undo.RegisterCreatedObjectUndo(go, $"Create {name}");
     }
 
     // ── 게임오버 기준선 ───────────────────────────────────────────────────────
 
     static void CreateGameOverLine()
     {
-        Kill("GameOverLine");
+        DestroyExisting("GameOverLine");
+
         var go = new GameObject("GameOverLine");
-        go.transform.position   = new Vector3(0f, GAMEOVER_Y, 0f);
-        go.transform.localScale = new Vector3(BOX_HALF_W * 2f, 0.04f, 1f);
+        go.transform.position   = new Vector3(0, GAMEOVER_Y, 0);
+        go.transform.localScale = new Vector3(BOX_HALF_W * 2f, 0.04f, 1);
 
         var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite       = WhiteSprite();
-        sr.color        = COL_LINE;
+        sr.sprite     = WhiteSprite();
+        sr.color      = COL_LINE;
         sr.sortingOrder = 5;
 
-        Undo.RegisterCreatedObjectUndo(go, "GameOverLine");
+        Undo.RegisterCreatedObjectUndo(go, "Create GameOverLine");
     }
 
     // ── GameManager ───────────────────────────────────────────────────────────
 
     static void CreateGameManager()
     {
-        Kill("GameManager");
+        DestroyExisting("GameManager");
+
         var go = new GameObject("GameManager");
         var gm = go.AddComponent<GameManager>();
 
-        var fp = new GameObject("FruitParent");
-        fp.transform.SetParent(go.transform);
-        gm.fruitParent         = fp.transform;
-        gm.gameOverLineY       = GAMEOVER_Y;
+        var fruitParent = new GameObject("FruitParent");
+        fruitParent.transform.SetParent(go.transform);
+        gm.fruitParent        = fruitParent.transform;
+        gm.gameOverLineY      = GAMEOVER_Y;
         gm.gameOverGracePeriod = 1.5f;
 
-        AutoDB(gm);
-        Undo.RegisterCreatedObjectUndo(go, "GameManager");
+        TryAssignFruitDatabase(gm);
+
+        Undo.RegisterCreatedObjectUndo(go, "Create GameManager");
     }
 
     // ── DropController ────────────────────────────────────────────────────────
 
     static DropController CreateDropController()
     {
-        Kill("DropController");
+        DestroyExisting("DropController");
+
         var go = new GameObject("DropController");
         var dc = go.AddComponent<DropController>();
 
-        dc.dropY        = DROP_Y;
-        dc.minX         = -(BOX_HALF_W - 0.05f);
-        dc.maxX         =   BOX_HALF_W - 0.05f;
+        dc.dropY       = DROP_Y;
+        dc.minX        = -BOX_HALF_W + 0.05f;
+        dc.maxX        =  BOX_HALF_W - 0.05f;
         dc.dropCooldown = 0.5f;
-        dc.nextFruitIcon = null;
 
-        // 드롭 인디케이터 (현재 과일 스프라이트)
-        var ind = new GameObject("DropIndicator");
-        ind.transform.SetParent(go.transform);
-        ind.transform.position = new Vector3(0f, DROP_Y, 0f);
-        var indSr = ind.AddComponent<SpriteRenderer>();
+        // DropIndicator: 현재 과일 + 조준선
+        var indGO = new GameObject("DropIndicator");
+        indGO.transform.SetParent(go.transform);
+        indGO.transform.position = new Vector3(0, DROP_Y, 0);
+        var indSr = indGO.AddComponent<SpriteRenderer>();
         indSr.sprite       = WhiteSprite();
-        indSr.color        = new Color(1f, 1f, 1f, 0.75f);
+        indSr.color        = new Color(1, 1, 1, 0.75f);
         indSr.sortingOrder = 10;
-        dc.dropIndicator   = ind.transform;
+        dc.dropIndicator   = indGO.transform;
 
-        // 조준 점선
-        var line = new GameObject("AimLine");
-        line.transform.SetParent(ind.transform);
-        line.transform.localPosition = Vector3.zero;
-        line.transform.localScale    = new Vector3(0.04f, 30f, 1f);
-        var lineSr = line.AddComponent<SpriteRenderer>();
+        // 조준 점선 (가는 세로선)
+        var lineGO = new GameObject("AimLine");
+        lineGO.transform.SetParent(indGO.transform);
+        lineGO.transform.localPosition = Vector3.zero;
+        lineGO.transform.localScale    = new Vector3(0.04f, 20f, 1);
+        var lineSr = lineGO.AddComponent<SpriteRenderer>();
         lineSr.sprite       = WhiteSprite();
-        lineSr.color        = new Color(0.93f, 0.33f, 0.31f, 0.28f);
+        lineSr.color        = new Color(0.93f, 0.33f, 0.31f, 0.35f);
         lineSr.sortingOrder = 9;
 
-        AutoDB(dc);
-        Undo.RegisterCreatedObjectUndo(go, "DropController");
+        // NextFruitIcon: 다음 과일 미리보기 (박스 오른쪽)
+        var nextGO = new GameObject("NextFruitIcon");
+        nextGO.transform.SetParent(go.transform);
+        nextGO.transform.position = new Vector3(NEXT_ICON_X, NEXT_ICON_Y, 0);
+        var nextSr = nextGO.AddComponent<SpriteRenderer>();
+        nextSr.sprite       = WhiteSprite();
+        nextSr.color        = Color.white;
+        nextSr.sortingOrder = 10;
+        dc.nextFruitIcon    = nextGO.transform;
+
+        TryAssignFruitDatabase(dc);
+
+        Undo.RegisterCreatedObjectUndo(go, "Create DropController");
         return dc;
     }
 
     // ── UI Canvas ─────────────────────────────────────────────────────────────
-    //
-    //  720×1280 기준 레이아웃
-    //  ┌───────────────────────────────────────┐ Y=0
-    //  │  SCORE(0~432px)  BEST(432~576px)  NEXT(576~720px)  │ 120px
-    //  └───────────────────────────────────────┘ Y=120
-    //                  게임 영역
-    //            GameOverLine  Y=4.5 → 228px
-    //                DROP_Y=5.0 → 183px  ← HUD 아래
-    //  └───────────────────────────────────────┘ Y=1280
 
     static void CreateUI(DropController dc)
     {
-        Kill("GameCanvas");
+        DestroyExisting("GameCanvas");
 
-        // Canvas
-        var root   = new GameObject("GameCanvas");
-        var canvas = root.AddComponent<Canvas>();
+        // Canvas 루트
+        var canvasGO = new GameObject("GameCanvas");
+        var canvas   = canvasGO.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
-        var scaler = root.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(720f, 1280f);
-        scaler.matchWidthOrHeight  = 0.5f;
+        var scaler = canvasGO.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode        = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(720, 1280);
+        scaler.matchWidthOrHeight  = 0.4f;
 
-        root.AddComponent<GraphicRaycaster>();
-        var uiMgr = root.AddComponent<UIManager>();
+        canvasGO.AddComponent<GraphicRaycaster>();
 
-        // ── HUD 띠 (상단 전체 너비 × 120px) ──────────────────────────────────
-        var hud = Img(root.transform, "HUD", COL_ORANGE);
-        SetRect(hud,
-            ancMin: new Vector2(0f, 1f), ancMax: new Vector2(1f, 1f),
-            pivot:  new Vector2(0.5f, 1f),
-            pos:    Vector2.zero,
-            size:   new Vector2(0f, 120f));
+        var uiMgr = canvasGO.AddComponent<UIManager>();
 
-        // SCORE 영역 (좌측 0~60%)
-        var scoreArea = Img(hud.transform, "ScoreArea", Color.clear);
-        SetRect(scoreArea,
-            ancMin: new Vector2(0f, 0f), ancMax: new Vector2(0.6f, 1f),
-            pivot:  new Vector2(0.5f, 0.5f), pos: Vector2.zero, size: Vector2.zero);
+        // ── 상단 HUD 패널 ──────────────────────────────────────────────────
+        // 전체 너비 × 130px, 화면 상단
+        var topPanel = MakeImage(canvasGO.transform, "TopPanel", COL_ORANGE,
+            ancMin: new Vector2(0, 1), ancMax: new Vector2(1, 1),
+            pivot:  new Vector2(0.5f, 1),
+            aPos:   Vector2.zero, size: new Vector2(0, 130));
 
-        TMP(scoreArea.transform, "ScoreLabel",
-            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-            new Vector2(0f, -10f), new Vector2(260f, 24f),
-            "SCORE", 15f, new Color(1f, 1f, 1f, 0.8f), false);
+        // 점수 레이블
+        MakeTMP(topPanel.transform, "ScoreLabel",
+            anchor: new Vector2(0.5f, 1), pivot: new Vector2(0.5f, 1),
+            aPos: new Vector2(-60, -14), size: new Vector2(280, 32),
+            text: "SCORE", fontSize: 18, color: new Color(1,1,1,0.8f));
 
-        var scoreTxt = TMP(scoreArea.transform, "ScoreText",
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-            new Vector2(0f, 6f), new Vector2(260f, 64f),
-            "0", 46f, Color.white, true);
-        uiMgr.scoreText = scoreTxt;
+        var scoreText = MakeTMP(topPanel.transform, "ScoreText",
+            anchor: new Vector2(0.5f, 1), pivot: new Vector2(0.5f, 1),
+            aPos: new Vector2(-60, -48), size: new Vector2(280, 68),
+            text: "0", fontSize: 52, color: Color.white, bold: true);
+        uiMgr.scoreText = scoreText;
 
-        // BEST 영역 (중간 60~78%)
-        var bestArea = Img(hud.transform, "BestArea", Color.clear);
-        SetRect(bestArea,
-            ancMin: new Vector2(0.60f, 0f), ancMax: new Vector2(0.78f, 1f),
-            pivot:  new Vector2(0.5f, 0.5f), pos: Vector2.zero, size: Vector2.zero);
+        // 최고 점수 (우상단)
+        MakeTMP(topPanel.transform, "BestLabel",
+            anchor: new Vector2(1, 1), pivot: new Vector2(1, 1),
+            aPos: new Vector2(-16, -18), size: new Vector2(200, 28),
+            text: "BEST", fontSize: 16, color: new Color(1,1,1,0.75f),
+            align: TextAlignmentOptions.Right);
 
-        TMP(bestArea.transform, "BestLabel",
-            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-            new Vector2(0f, -12f), new Vector2(120f, 22f),
-            "BEST", 13f, new Color(1f, 1f, 1f, 0.75f), false);
+        var bestText = MakeTMP(topPanel.transform, "BestScoreText",
+            anchor: new Vector2(1, 1), pivot: new Vector2(1, 1),
+            aPos: new Vector2(-16, -50), size: new Vector2(200, 40),
+            text: "0", fontSize: 30, color: Color.white, bold: true,
+            align: TextAlignmentOptions.Right);
+        uiMgr.bestScoreText = bestText;
 
-        var bestTxt = TMP(bestArea.transform, "BestText",
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-            new Vector2(0f, 6f), new Vector2(120f, 36f),
-            "0", 24f, Color.white, true);
-        uiMgr.bestScoreText = bestTxt;
+        // ── NEXT 패널 (우측 중단) ───────────────────────────────────────────
+        var nextPanel = MakeImage(canvasGO.transform, "NextPanel", COL_ORANGE,
+            ancMin: new Vector2(1, 0.62f), ancMax: new Vector2(1, 0.62f),
+            pivot:  new Vector2(1, 0.5f),
+            aPos: new Vector2(-8, 0), size: new Vector2(110, 130));
 
-        // NEXT 영역 (우측 78~100%) + 배경 강조
-        var nextArea = Img(hud.transform, "NextArea", new Color(0f, 0f, 0f, 0.12f));
-        SetRect(nextArea,
-            ancMin: new Vector2(0.78f, 0f), ancMax: new Vector2(1f, 1f),
-            pivot:  new Vector2(0.5f, 0.5f), pos: Vector2.zero, size: Vector2.zero);
+        MakeTMP(nextPanel.transform, "NextLabel",
+            anchor: new Vector2(0.5f, 1), pivot: new Vector2(0.5f, 1),
+            aPos: new Vector2(0, -10), size: new Vector2(100, 28),
+            text: "NEXT", fontSize: 18, color: new Color(1,1,1,0.85f), bold: true,
+            align: TextAlignmentOptions.Center);
 
-        TMP(nextArea.transform, "NextLabel",
-            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-            new Vector2(0f, -8f), new Vector2(140f, 20f),
-            "NEXT", 13f, new Color(1f, 1f, 1f, 0.85f), true);
-
+        // NEXT 패널 내부 과일 이미지 (#4)
         var nextImgGO = new GameObject("NextFruitImage");
-        nextImgGO.transform.SetParent(nextArea.transform, false);
-        SetRect(nextImgGO,
-            ancMin: new Vector2(0.1f, 0.06f), ancMax: new Vector2(0.9f, 0.70f),
-            pivot:  new Vector2(0.5f, 0.5f), pos: Vector2.zero, size: Vector2.zero);
+        nextImgGO.transform.SetParent(nextPanel.transform, false);
+        var nextImgRt = nextImgGO.AddComponent<RectTransform>();
+        nextImgRt.anchorMin        = new Vector2(0.1f, 0.08f);
+        nextImgRt.anchorMax        = new Vector2(0.9f, 0.72f);
+        nextImgRt.offsetMin        = Vector2.zero;
+        nextImgRt.offsetMax        = Vector2.zero;
         var nextImg = nextImgGO.AddComponent<Image>();
-        nextImg.preserveAspect = true;
-        nextImg.raycastTarget  = false;
+        nextImg.preserveAspect     = true;
+        nextImg.raycastTarget      = false;
         if (dc != null) dc.nextFruitUIImage = nextImg;
 
-        // ── 게임오버 패널 (중앙) ──────────────────────────────────────────────
-        var pop = Img(root.transform, "GameOverPanel",
-            new Color(1f, 0.976f, 0.941f, 0.97f));
-        SetRect(pop,
+        // ── 게임오버 패널 ───────────────────────────────────────────────────
+        var goPanel = MakeImage(canvasGO.transform, "GameOverPanel", COL_CREAM,
             ancMin: new Vector2(0.5f, 0.5f), ancMax: new Vector2(0.5f, 0.5f),
             pivot:  new Vector2(0.5f, 0.5f),
-            pos:    Vector2.zero, size: new Vector2(520f, 400f));
-        pop.SetActive(false);
-        uiMgr.gameOverPanel = pop;
+            aPos: Vector2.zero, size: new Vector2(520, 420));
 
-        TMP(pop.transform, "GOTitle",
-            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-            new Vector2(0f, -44f), new Vector2(480f, 64f),
-            "게임 오버", 44f, COL_BTN, true);
+        // 둥근 느낌을 위해 outline (Image의 color 오버레이)
+        goPanel.GetComponent<Image>().color = new Color(1f, 0.976f, 0.941f, 0.97f);
 
-        var goScore = TMP(pop.transform, "GOScore",
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-            new Vector2(0f, 52f), new Vector2(480f, 52f),
-            "점수: 0", 30f, COL_TXT_DARK, false);
+        uiMgr.gameOverPanel = goPanel;
+        goPanel.SetActive(false);   // 시작 시 숨김
+
+        MakeTMP(goPanel.transform, "GOTitle",
+            anchor: new Vector2(0.5f, 1), pivot: new Vector2(0.5f, 1),
+            aPos: new Vector2(0, -50), size: new Vector2(480, 70),
+            text: "게임 오버", fontSize: 46, color: COL_BTN, bold: true);
+
+        var goScore = MakeTMP(goPanel.transform, "GOScoreText",
+            anchor: new Vector2(0.5f, 0.5f), pivot: new Vector2(0.5f, 0.5f),
+            aPos: new Vector2(0, 50), size: new Vector2(480, 56),
+            text: "점수: 0", fontSize: 32, color: COL_TXT_DARK);
         uiMgr.gameOverScoreText = goScore;
 
-        var goBest = TMP(pop.transform, "GOBest",
-            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-            new Vector2(0f, -4f), new Vector2(480f, 44f),
-            "최고 점수: 0", 24f, COL_TXT_BROWN, false);
+        var goBest = MakeTMP(goPanel.transform, "GOBestText",
+            anchor: new Vector2(0.5f, 0.5f), pivot: new Vector2(0.5f, 0.5f),
+            aPos: new Vector2(0, -8), size: new Vector2(480, 46),
+            text: "최고 점수: 0", fontSize: 26, color: COL_TXT_BROWN);
         uiMgr.gameOverBestText = goBest;
 
-        RestartBtn(pop.transform, uiMgr);
+        // 다시 시작 버튼
+        MakeRestartButton(goPanel.transform, uiMgr);
 
-        Undo.RegisterCreatedObjectUndo(root, "GameCanvas");
+        Undo.RegisterCreatedObjectUndo(canvasGO, "Create UI Canvas");
     }
 
     // ── EventSystem ───────────────────────────────────────────────────────────
 
     static void EnsureEventSystem()
     {
-        // FindFirstObjectByType: Unity 6 권장 API
         if (Object.FindFirstObjectByType<EventSystem>() != null) return;
 
         var go = new GameObject("EventSystem");
         go.AddComponent<EventSystem>();
         go.AddComponent<InputSystemUIInputModule>();
-        Undo.RegisterCreatedObjectUndo(go, "EventSystem");
+        Undo.RegisterCreatedObjectUndo(go, "Create EventSystem");
     }
 
-    // ── 헬퍼 ─────────────────────────────────────────────────────────────────
+    // ── UI 헬퍼 ───────────────────────────────────────────────────────────────
 
-    static GameObject Img(Transform parent, string name, Color color)
+    static GameObject MakeImage(Transform parent, string name, Color color,
+        Vector2 ancMin, Vector2 ancMax, Vector2 pivot, Vector2 aPos, Vector2 size)
     {
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
-        go.AddComponent<RectTransform>();
-        var img = go.AddComponent<Image>();
-        img.color         = color;
-        img.raycastTarget = false;
-        return go;
-    }
-
-    static void SetRect(GameObject go,
-        Vector2 ancMin, Vector2 ancMax, Vector2 pivot, Vector2 pos, Vector2 size)
-    {
-        var rt = go.GetComponent<RectTransform>();
-        if (rt == null) rt = go.AddComponent<RectTransform>();
+        var rt = go.AddComponent<RectTransform>();
         rt.anchorMin        = ancMin;
         rt.anchorMax        = ancMax;
         rt.pivot            = pivot;
-        rt.anchoredPosition = pos;
+        rt.anchoredPosition = aPos;
         rt.sizeDelta        = size;
+        var img = go.AddComponent<Image>();
+        img.color          = color;
+        img.raycastTarget  = false;
+        return go;
     }
 
-    static TextMeshProUGUI TMP(Transform parent, string name,
-        Vector2 ancMin, Vector2 pivot, Vector2 pos, Vector2 size,
-        string text, float fontSize, Color color, bool bold)
+    static TextMeshProUGUI MakeTMP(Transform parent, string name,
+        Vector2 anchor, Vector2 pivot, Vector2 aPos, Vector2 size,
+        string text, float fontSize, Color color, bool bold = false,
+        TextAlignmentOptions align = TextAlignmentOptions.Center)
     {
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
-        SetRect(go, ancMin, ancMin, pivot, pos, size);
-        var t = go.AddComponent<TextMeshProUGUI>();
-        t.text          = text;
-        t.fontSize      = fontSize;
-        t.color         = color;
-        t.fontStyle     = bold ? FontStyles.Bold : FontStyles.Normal;
-        t.alignment     = TextAlignmentOptions.Center;
-        t.raycastTarget = false;
-        t.overflowMode  = TextOverflowModes.Ellipsis;
-        return t;
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin        = anchor;
+        rt.anchorMax        = anchor;
+        rt.pivot            = pivot;
+        rt.anchoredPosition = aPos;
+        rt.sizeDelta        = size;
+        var tmp = go.AddComponent<TextMeshProUGUI>();
+        tmp.text            = text;
+        tmp.fontSize        = fontSize;
+        tmp.color           = color;
+        tmp.fontStyle       = bold ? FontStyles.Bold : FontStyles.Normal;
+        tmp.alignment       = align;
+        tmp.raycastTarget   = false;
+        tmp.overflowMode    = TextOverflowModes.Ellipsis;
+        return tmp;
     }
 
-    static void RestartBtn(Transform parent, UIManager uiMgr)
+    static void MakeRestartButton(Transform parent, UIManager uiMgr)
     {
         var go = new GameObject("RestartButton");
         go.transform.SetParent(parent, false);
-        SetRect(go,
-            new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-            new Vector2(0.5f, 0f),
-            new Vector2(0f, 40f), new Vector2(300f, 70f));
+
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin        = new Vector2(0.5f, 0);
+        rt.anchorMax        = new Vector2(0.5f, 0);
+        rt.pivot            = new Vector2(0.5f, 0);
+        rt.anchoredPosition = new Vector2(0, 44);
+        rt.sizeDelta        = new Vector2(300, 72);
+
         var img = go.AddComponent<Image>();
         img.color = COL_BTN;
 
@@ -367,37 +387,46 @@ public static class SceneSetupEditor
         var nav = btn.navigation;
         nav.mode       = Navigation.Mode.None;
         btn.navigation = nav;
+
+        // 색상 전환 (hover / press)
         var cb = btn.colors;
         cb.normalColor      = COL_BTN;
-        cb.highlightedColor = new Color(0.97f, 0.47f, 0.45f);
-        cb.pressedColor     = new Color(0.78f, 0.22f, 0.20f);
-        btn.colors = cb;
+        cb.highlightedColor = new Color(0.97f, 0.47f, 0.45f, 1f);
+        cb.pressedColor     = new Color(0.78f, 0.22f, 0.20f, 1f);
+        btn.colors          = cb;
 
-        var lblGO = new GameObject("Label");
-        lblGO.transform.SetParent(go.transform, false);
-        SetRect(lblGO,
-            Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
-            Vector2.zero, Vector2.zero);
-        var t = lblGO.AddComponent<TextMeshProUGUI>();
-        t.text      = "다시 시작";
-        t.fontSize  = 28f;
-        t.color     = Color.white;
-        t.fontStyle = FontStyles.Bold;
-        t.alignment = TextAlignmentOptions.Center;
+        // 버튼 텍스트
+        var txtGO = new GameObject("Text");
+        txtGO.transform.SetParent(go.transform, false);
+        var txtRt = txtGO.AddComponent<RectTransform>();
+        txtRt.anchorMin = Vector2.zero;
+        txtRt.anchorMax = Vector2.one;
+        txtRt.offsetMin = Vector2.zero;
+        txtRt.offsetMax = Vector2.zero;
+        var tmp = txtGO.AddComponent<TextMeshProUGUI>();
+        tmp.text      = "다시 시작";
+        tmp.fontSize  = 30;
+        tmp.color     = Color.white;
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.alignment = TextAlignmentOptions.Center;
 
+        // OnClick 영구 리스너 연결
         UnityEventTools.AddPersistentListener(btn.onClick, uiMgr.OnRestartButton);
     }
+
+    // ── 공통 유틸 ─────────────────────────────────────────────────────────────
 
     static Sprite WhiteSprite() =>
         AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
 
-    static void Kill(string name)
+    static void DestroyExisting(string name)
     {
         var go = GameObject.Find(name);
         if (go != null) Object.DestroyImmediate(go);
     }
 
-    static void AutoDB(GameManager gm)
+    // FruitDatabase 에셋을 프로젝트에서 자동 탐색해 할당
+    static void TryAssignFruitDatabase(GameManager gm)
     {
         var guids = AssetDatabase.FindAssets("t:FruitDatabase");
         if (guids.Length == 0) return;
@@ -405,7 +434,7 @@ public static class SceneSetupEditor
             AssetDatabase.GUIDToAssetPath(guids[0]));
     }
 
-    static void AutoDB(DropController dc)
+    static void TryAssignFruitDatabase(DropController dc)
     {
         var guids = AssetDatabase.FindAssets("t:FruitDatabase");
         if (guids.Length == 0) return;
