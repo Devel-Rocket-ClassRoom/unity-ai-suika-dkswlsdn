@@ -18,7 +18,9 @@ public class Fruit : MonoBehaviour
         Data = data;
 
         var col = GetComponent<CircleCollider2D>();
-        col.radius = data.radius;
+        // 스프라이트는 PPU=TEX 설정으로 자연 크기 1유닛(반지름 0.5).
+        // localScale = radius*2 이므로 월드 충돌 반지름 = 0.5 * radius*2 = radius.
+        col.radius = 0.5f;
 
         var sr = GetComponent<SpriteRenderer>();
         if (data.sprite != null)
