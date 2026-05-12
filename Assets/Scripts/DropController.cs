@@ -8,6 +8,7 @@ public class DropController : MonoBehaviour
     [Header("References")]
     public FruitDatabase fruitDatabase;
     public Transform dropIndicator;   // small sprite that follows the cursor horizontally
+    public Transform aimLine;         // fixed-scale guide line (not a child of dropIndicator)
     public Transform nextFruitIcon;   // (선택) 월드 공간 아이콘 — 사용하지 않아도 됨
     public Image nextFruitUIImage;    // UI Canvas 안 NEXT 패널 이미지
 
@@ -57,6 +58,10 @@ public class DropController : MonoBehaviour
         // Move drop indicator
         if (dropIndicator != null)
             dropIndicator.position = new Vector3(worldX, dropY, 0f);
+
+        // Aim line follows X only — Y and scale stay fixed
+        if (aimLine != null)
+            aimLine.position = new Vector3(worldX, aimLine.position.y, 0f);
 
         // Drop on click / tap
         if (_cooldownTimer <= 0f && IsDropInput())
@@ -131,7 +136,6 @@ public class DropController : MonoBehaviour
             if (sr != null)
             {
                 sr.sprite = _currentFruitData.sprite;
-                sr.color = _currentFruitData.color;
             }
             dropIndicator.localScale = Vector3.one * _currentFruitData.radius * 2f;
         }

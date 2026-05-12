@@ -103,11 +103,10 @@ public static class SceneSetupEditor
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = WhiteSprite();
         sr.color  = color;
-        sr.drawMode = SpriteDrawMode.Sliced;
-        sr.size = Vector2.one;
+        
+        
 
-        var col = go.AddComponent<BoxCollider2D>();
-        col.size = Vector2.one;   // scale 이 실제 크기를 결정
+        go.AddComponent<BoxCollider2D>();
 
         Undo.RegisterCreatedObjectUndo(go, $"Create {name}");
     }
@@ -164,7 +163,7 @@ public static class SceneSetupEditor
         dc.maxX        =  BOX_HALF_W - 0.05f;
         dc.dropCooldown = 0.5f;
 
-        // DropIndicator: 현재 과일 + 조준선
+        // DropIndicator: 현재 과일 아이콘 (스케일이 과일 반지름에 따라 바뀜)
         var indGO = new GameObject("DropIndicator");
         indGO.transform.SetParent(go.transform);
         indGO.transform.position = new Vector3(0, DROP_Y, 0);
@@ -174,25 +173,20 @@ public static class SceneSetupEditor
         indSr.sortingOrder = 10;
         dc.dropIndicator   = indGO.transform;
 
-        // 조준 점선 (가는 세로선)
+        // AimLine: DropController 직속 자식 → 과일 스케일 상속 없이 고정 크기 유지
+        float aimCenterY = (DROP_Y + FLOOR_Y) * 0.5f;
+        float aimHeight  = DROP_Y - FLOOR_Y;
         var lineGO = new GameObject("AimLine");
-        lineGO.transform.SetParent(indGO.transform);
-        lineGO.transform.localPosition = Vector3.zero;
-        lineGO.transform.localScale    = new Vector3(0.04f, 20f, 1);
+        lineGO.transform.SetParent(go.transform);
+        lineGO.transform.position   = new Vector3(0, aimCenterY, 0);
+        lineGO.transform.localScale = new Vector3(0.04f, aimHeight, 1);
         var lineSr = lineGO.AddComponent<SpriteRenderer>();
         lineSr.sprite       = WhiteSprite();
         lineSr.color        = new Color(0.93f, 0.33f, 0.31f, 0.35f);
         lineSr.sortingOrder = 9;
+        dc.aimLine = lineGO.transform;
 
-        // NextFruitIcon: 다음 과일 미리보기 (박스 오른쪽)
-        var nextGO = new GameObject("NextFruitIcon");
-        nextGO.transform.SetParent(go.transform);
-        nextGO.transform.position = new Vector3(NEXT_ICON_X, NEXT_ICON_Y, 0);
-        var nextSr = nextGO.AddComponent<SpriteRenderer>();
-        nextSr.sprite       = WhiteSprite();
-        nextSr.color        = Color.white;
-        nextSr.sortingOrder = 10;
-        dc.nextFruitIcon    = nextGO.transform;
+        dc.nextFruitIcon = null; // UI Image(NextPanel)가 담당하므로 월드 아이콘 불필요
 
         TryAssignFruitDatabase(dc);
 
@@ -221,35 +215,35 @@ public static class SceneSetupEditor
         var uiMgr = canvasGO.AddComponent<UIManager>();
 
         // ── 상단 HUD 패널 ──────────────────────────────────────────────────
-        // 전체 너비 × 130px, 화면 상단
+        // 80px: CAM_SIZE=6에서 HUD 하단 Y≈5.25, DROP_Y=5.0 아래 ✓
         var topPanel = MakeImage(canvasGO.transform, "TopPanel", COL_ORANGE,
             ancMin: new Vector2(0, 1), ancMax: new Vector2(1, 1),
             pivot:  new Vector2(0.5f, 1),
-            aPos:   Vector2.zero, size: new Vector2(0, 130));
+            aPos:   Vector2.zero, size: new Vector2(0, 80));
 
         // 점수 레이블
         MakeTMP(topPanel.transform, "ScoreLabel",
             anchor: new Vector2(0.5f, 1), pivot: new Vector2(0.5f, 1),
-            aPos: new Vector2(-60, -14), size: new Vector2(280, 32),
-            text: "SCORE", fontSize: 18, color: new Color(1,1,1,0.8f));
+            aPos: new Vector2(-60, -8), size: new Vector2(280, 22),
+            text: "SCORE", fontSize: 13, color: new Color(1,1,1,0.8f));
 
         var scoreText = MakeTMP(topPanel.transform, "ScoreText",
             anchor: new Vector2(0.5f, 1), pivot: new Vector2(0.5f, 1),
-            aPos: new Vector2(-60, -48), size: new Vector2(280, 68),
-            text: "0", fontSize: 52, color: Color.white, bold: true);
+            aPos: new Vector2(-60, -32), size: new Vector2(280, 46),
+            text: "0", fontSize: 36, color: Color.white, bold: true);
         uiMgr.scoreText = scoreText;
 
         // 최고 점수 (우상단)
         MakeTMP(topPanel.transform, "BestLabel",
             anchor: new Vector2(1, 1), pivot: new Vector2(1, 1),
-            aPos: new Vector2(-16, -18), size: new Vector2(200, 28),
-            text: "BEST", fontSize: 16, color: new Color(1,1,1,0.75f),
+            aPos: new Vector2(-14, -10), size: new Vector2(180, 20),
+            text: "BEST", fontSize: 12, color: new Color(1,1,1,0.75f),
             align: TextAlignmentOptions.Right);
 
         var bestText = MakeTMP(topPanel.transform, "BestScoreText",
             anchor: new Vector2(1, 1), pivot: new Vector2(1, 1),
-            aPos: new Vector2(-16, -50), size: new Vector2(200, 40),
-            text: "0", fontSize: 30, color: Color.white, bold: true,
+            aPos: new Vector2(-14, -34), size: new Vector2(180, 32),
+            text: "0", fontSize: 22, color: Color.white, bold: true,
             align: TextAlignmentOptions.Right);
         uiMgr.bestScoreText = bestText;
 
@@ -317,7 +311,7 @@ public static class SceneSetupEditor
 
     static void EnsureEventSystem()
     {
-        if (Object.FindObjectOfType<EventSystem>() != null) return;
+        if (Object.FindFirstObjectByType<EventSystem>() != null) return;
 
         var go = new GameObject("EventSystem");
         go.AddComponent<EventSystem>();
@@ -416,8 +410,14 @@ public static class SceneSetupEditor
 
     // ── 공통 유틸 ─────────────────────────────────────────────────────────────
 
-    static Sprite WhiteSprite() =>
-        AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+    // PPU=1 흰 픽셀 → native size 1유닛 → localScale = 월드 크기와 1:1
+    static Sprite WhiteSprite()
+    {
+        var tex = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        tex.SetPixel(0, 0, Color.white);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f);
+    }
 
     static void DestroyExisting(string name)
     {
