@@ -136,7 +136,6 @@ public class DropController : MonoBehaviour
             if (sr != null)
             {
                 sr.sprite = _currentFruitData.sprite;
-                sr.color = _currentFruitData.color;
             }
             dropIndicator.localScale = Vector3.one * _currentFruitData.radius * 2f;
         }
