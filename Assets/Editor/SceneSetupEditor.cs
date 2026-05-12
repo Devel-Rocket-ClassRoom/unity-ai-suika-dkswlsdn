@@ -267,14 +267,15 @@ public static class SceneSetupEditor
 
         MakeTMP(nextSection.transform, "NextLabel",
             anchor: new Vector2(0.5f, 1), pivot: new Vector2(0.5f, 1),
-            aPos: new Vector2(0, -8), size: new Vector2(160, 22),
-            text: "NEXT", fontSize: 14, color: new Color(1, 1, 1, 0.85f), bold: true);
+            aPos: new Vector2(0, -10), size: new Vector2(100, 28),
+            text: "NEXT", fontSize: 18, color: new Color(1,1,1,0.85f), bold: true,
+            align: TextAlignmentOptions.Center);
 
-        // 과일 이미지: 레이블 아래 정사각형 영역
+        // NEXT 패널 내부 과일 이미지 (#4)
         var nextImgGO = new GameObject("NextFruitImage");
-        nextImgGO.transform.SetParent(nextSection.transform, false);
+        nextImgGO.transform.SetParent(nextPanel.transform, false);
         var nextImgRt = nextImgGO.AddComponent<RectTransform>();
-        nextImgRt.anchorMin        = new Vector2(0.1f, 0.05f);
+        nextImgRt.anchorMin        = new Vector2(0.1f, 0.08f);
         nextImgRt.anchorMax        = new Vector2(0.9f, 0.72f);
         nextImgRt.offsetMin        = Vector2.zero;
         nextImgRt.offsetMax        = Vector2.zero;
@@ -283,9 +284,8 @@ public static class SceneSetupEditor
         nextImg.raycastTarget      = false;
         if (dc != null) dc.nextFruitUIImage = nextImg;
 
-        // ── 게임오버 패널 (화면 중앙) ──────────────────────────────────────────
-        var goPanel = MakeImage(canvasGO.transform, "GameOverPanel",
-            new Color(1f, 0.976f, 0.941f, 0.97f),
+        // ── 게임오버 패널 ───────────────────────────────────────────────────
+        var goPanel = MakeImage(canvasGO.transform, "GameOverPanel", COL_CREAM,
             ancMin: new Vector2(0.5f, 0.5f), ancMax: new Vector2(0.5f, 0.5f),
             pivot:  new Vector2(0.5f, 0.5f),
             aPos: Vector2.zero, size: new Vector2(520, 400));

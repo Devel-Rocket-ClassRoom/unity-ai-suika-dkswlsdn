@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 public class DropController : MonoBehaviour
 {
@@ -7,7 +8,8 @@ public class DropController : MonoBehaviour
     [Header("References")]
     public FruitDatabase fruitDatabase;
     public Transform dropIndicator;   // small sprite that follows the cursor horizontally
-    public Transform nextFruitIcon;   // UI icon showing upcoming fruit
+    public Transform nextFruitIcon;   // (선택) 월드 공간 아이콘 — 사용하지 않아도 됨
+    public Image nextFruitUIImage;    // UI Canvas 안 NEXT 패널 이미지
 
     [Header("Drop Zone")]
     public float dropY = 5f;          // Y position where fruits are released
@@ -48,7 +50,9 @@ public class DropController : MonoBehaviour
         _cooldownTimer -= Time.deltaTime;
 
         float worldX = GetInputX();
-        worldX = Mathf.Clamp(worldX, minX, maxX);
+        // 현재 과일 반지름만큼 안쪽으로 좁혀 벽 콜라이더 겹침 방지 (#3)
+        float r = _currentFruitData != null ? _currentFruitData.radius : 0f;
+        worldX = Mathf.Clamp(worldX, minX + r, maxX - r);
 
         // Move drop indicator
         if (dropIndicator != null)
@@ -100,14 +104,22 @@ public class DropController : MonoBehaviour
         _currentFruitData = _nextFruitData;
         _nextFruitData = PickRandom();
 
-        // Update next-fruit preview icon
+        // NEXT UI Image 업데이트 (#4)
+        if (nextFruitUIImage != null)
+        {
+            nextFruitUIImage.sprite = _nextFruitData.sprite;
+            nextFruitUIImage.color  = _nextFruitData.sprite != null ? Color.white : _nextFruitData.color;
+            nextFruitUIImage.preserveAspect = true;
+        }
+
+        // (월드 공간 아이콘이 연결된 경우 함께 업데이트)
         if (nextFruitIcon != null)
         {
             var sr = nextFruitIcon.GetComponent<SpriteRenderer>();
             if (sr != null)
             {
                 sr.sprite = _nextFruitData.sprite;
-                sr.color = _nextFruitData.color;
+                sr.color  = _nextFruitData.color;
             }
             nextFruitIcon.localScale = Vector3.one * _nextFruitData.radius * 2f;
         }
