@@ -11,7 +11,10 @@ using UnityEngine;
 public static class FruitAssetGenerator
 {
     const int TEX  = 128;           // 텍스처 해상도
-    const int PPU  = 100;           // Pixels Per Unit
+    // PPU = TEX 로 맞추면 스프라이트 자연 월드 크기 = TEX/PPU = 1유닛.
+    // Fruit.Init() 에서 scale = radius*2 를 곱하면 시각 지름 = radius*2 유닛.
+    // CircleCollider2D.radius = 0.5 → 월드 반지름 = 0.5 * scale = radius. (일치)
+    const int PPU  = TEX;           // Pixels Per Unit (= 128)
 
     // ── 과일 정의 (이름, 스테이지, 반지름, 점수, 낙하가능, 메인색, 테두리색) ──────
     static readonly FruitDef[] Defs =
