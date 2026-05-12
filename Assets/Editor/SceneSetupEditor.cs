@@ -13,9 +13,9 @@ public static class SceneSetupEditor
     //   월드 높이=14, HUD 120px = 1.3125 월드 → HUD 하단 Y=5.69
     //   DROP_Y=5.0 → 화면 183px (HUD 120px 아래 ✓)
     const float CAM_SIZE   = 7f;
-    const float BOX_HALF_W = 2.6f;
+    const float BOX_HALF_W = 4.2f;   // 11:16 cam half-w≈4.81 → 양쪽 ~0.36 여백
     const float FLOOR_Y    = -5.5f;
-    const float WALL_THICK = 0.25f;
+    const float WALL_THICK = 0.3f;
     const float GAMEOVER_Y = 4.5f;
     const float DROP_Y     = 5.0f;
 
