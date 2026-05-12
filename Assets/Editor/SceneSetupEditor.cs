@@ -106,8 +106,7 @@ public static class SceneSetupEditor
         
         
 
-        var col = go.AddComponent<BoxCollider2D>();
-        col.size = Vector2.one;   // scale 이 실제 크기를 결정
+        go.AddComponent<BoxCollider2D>();
 
         Undo.RegisterCreatedObjectUndo(go, $"Create {name}");
     }
@@ -416,8 +415,14 @@ public static class SceneSetupEditor
 
     // ── 공통 유틸 ─────────────────────────────────────────────────────────────
 
-    static Sprite WhiteSprite() =>
-        AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+    // PPU=1 흰 픽셀 → native size 1유닛 → localScale = 월드 크기와 1:1
+    static Sprite WhiteSprite()
+    {
+        var tex = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        tex.SetPixel(0, 0, Color.white);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f);
+    }
 
     static void DestroyExisting(string name)
     {
